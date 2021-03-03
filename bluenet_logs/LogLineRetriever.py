@@ -29,6 +29,9 @@ class LogLineRetriever:
 
 	# We could also get all source files from: build/default/CMakeFiles/crownstone.dir/depend.internal
 	def setSourceFilesDir(self, dir: str):
+		if os.path.isdir(dir) == False:
+			_LOGGER.warning(f"No such dir: {dir}")
+
 		self.sourceFilesDir = dir
 
 		self._cacheFileNames()
@@ -66,7 +69,7 @@ class LogLineRetriever:
 		"""
 		for fileName in self.fileNames:
 			# Cache hash of all file names.
-			fileNameHash = self.getFileNameHash(fileName)
+			fileNameHash = self._getFileNameHash(fileName)
 			self.fileNameHashMap[fileNameHash] = fileName
 
 	def _cacheFileContents(self):
@@ -108,7 +111,7 @@ class LogLineRetriever:
 			return None
 
 		line = lines[lineNr]
-		result = self.getLogFmtFromLine(line)
+		result = self._getLogFmtFromLine(line)
 		if result is not None:
 			return result
 
@@ -136,7 +139,7 @@ class LogLineRetriever:
 				mergedLine = curLine + mergedLine
 				if brackets == 0:
 					# Looks like we're at the first opening bracket.
-					result = self.getLogFmtFromLine(mergedLine)
+					result = self._getLogFmtFromLine(mergedLine)
 					if result is not None:
 						return result
 				i = i - 1

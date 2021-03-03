@@ -2,8 +2,8 @@ from crownstone_uart import UartEventBus, UartTopics
 from crownstone_uart.core.uart.uartPackets.UartLogArrayPacket import UartLogArrayPacket
 from crownstone_uart.core.uart.uartPackets.UartLogPacket import UartLogPacket
 
-from core.LogFormatter import LogFormatter
-from core.LogLineRetriever import LogLineRetriever
+from bluenet_logs.LogFormatter import LogFormatter
+from bluenet_logs.LogLineRetriever import LogLineRetriever
 
 
 class BluenetLogs:
@@ -30,7 +30,6 @@ class BluenetLogs:
 		fileName = self.logLineRetriever.getFileName(data.header.fileNameHash)
 		if fileName == None:
 			return
-		logFormat = self.logLineRetriever.getLogFormat(fileName, data.header.lineNr)
-		if logFormat == None:
-			return
+		# No log format is used yet.
+		logFormat = ""
 		self.logFormatter.printLogArray(logFormat, fileName, data.header.lineNr, data.header.logLevel, data.header.newLine, data.elementType, data.elementSize, data.elementData)
