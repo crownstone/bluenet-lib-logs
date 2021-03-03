@@ -107,7 +107,7 @@ class LogLineRetriever:
 		lineNr = lineNr - 1 # List starts at 0, line numbers start at 1.
 
 		if lineNr < 0 or lineNr >= len(lines):
-			_LOGGER.warning("Invalid line number " + str(lineNr + 1))
+			_LOGGER.warning(f"Invalid line number {lineNr + 1}")
 			return None
 
 		line = lines[lineNr]
@@ -144,7 +144,7 @@ class LogLineRetriever:
 						return result
 				i = i - 1
 
-		_LOGGER.warning(f"Can't find log format in: {fileName[-30:]}:{lineNr} {line.rstrip()}")
+		_LOGGER.warning(f"Can't find log format in: {fileName[-30:]}:{lineNr + 1} {line.rstrip()}")
 		return None
 
 	def _getLogFmtFromLine(self, fileLine):
