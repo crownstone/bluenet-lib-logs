@@ -11,6 +11,7 @@ from bluenet_logs import BluenetLogs
 
 # Change this to the path with the bluenet source code files on your system.
 sourceFilesDir = "/opt/bluenet-workspace/bluenet/source"
+sourceFilesDir = "/home/vliedel/dev/bluenet-workspace-cmake/bluenet/source"
 
 # Init bluenet logs, it will listen to events from the Crownstone lib.
 bluenetLogs = BluenetLogs()
