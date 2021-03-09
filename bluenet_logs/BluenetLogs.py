@@ -7,6 +7,8 @@ from bluenet_logs.LogLineRetriever import LogLineRetriever
 
 
 class BluenetLogs:
+	__version__ = "0.5.0"
+
 	def __init__(self):
 		self.logFormatter = LogFormatter()
 		self.logLineRetriever = LogLineRetriever()
@@ -19,16 +21,16 @@ class BluenetLogs:
 
 	def onLog(self, data: UartLogPacket):
 		fileName = self.logLineRetriever.getFileName(data.header.fileNameHash)
-		if fileName == None:
+		if fileName is None:
 			return
 		logFormat = self.logLineRetriever.getLogFormat(fileName, data.header.lineNr)
-		if logFormat == None:
+		if logFormat is None:
 			return
 		self.logFormatter.printLog(logFormat, fileName, data.header.lineNr, data.header.logLevel, data.header.newLine, data.argBufs)
 
 	def onLogArray(self, data: UartLogArrayPacket):
 		fileName = self.logLineRetriever.getFileName(data.header.fileNameHash)
-		if fileName == None:
+		if fileName is None:
 			return
 		# No log format is used yet.
 		logFormat = ""
