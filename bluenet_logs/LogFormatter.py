@@ -2,8 +2,8 @@ import logging
 import datetime
 import sys
 
+from crownstone_core.util.BufferReader import BufferReader
 from crownstone_core.util.Conversion import Conversion
-from crownstone_core.util.DataStepper import DataStepper
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -184,7 +184,7 @@ class LogFormatter:
 	                elementData: list):
 		timestamp = datetime.datetime.now()
 
-		dataStepper = DataStepper(elementData)
+		bufferReader = BufferReader(elementData)
 		dataSize = len(elementData)
 		if dataSize % elementSize != 0:
 			_LOGGER.warning(f"Remaining data with element size of {elementSize} and element data of size {dataSize}")
@@ -198,39 +198,39 @@ class LogFormatter:
 				# Signed integer
 				elemVal = 0
 				if elementSize == 1:
-					elemVal = dataStepper.getInt8()
+					elemVal = bufferReader.getInt8()
 					logStr += "%3i, " % elemVal
 				elif elementSize == 2:
-					elemVal = dataStepper.getInt16()
+					elemVal = bufferReader.getInt16()
 					logStr += "%5i, " % elemVal
 				elif elementSize == 4:
-					elemVal = dataStepper.getInt32()
+					elemVal = bufferReader.getInt32()
 					logStr += "%10i, " % elemVal
 				elif elementSize == 8:
-					elemVal = dataStepper.getInt64()
+					elemVal = bufferReader.getInt64()
 					logStr += "%20i, " % elemVal
 
 			elif elementType == 1:
 				# Unsigned integer
 				elemVal = 0
 				if elementSize == 1:
-					elemVal = dataStepper.getUInt8()
+					elemVal = bufferReader.getUInt8()
 					logStr += "%3u, " % elemVal
 				elif elementSize == 2:
-					elemVal = dataStepper.getUInt16()
+					elemVal = bufferReader.getUInt16()
 					logStr += "%5u, " % elemVal
 				elif elementSize == 4:
-					elemVal = dataStepper.getUInt32()
+					elemVal = bufferReader.getUInt32()
 					logStr += "%10u, " % elemVal
 				elif elementSize == 8:
-					elemVal = dataStepper.getUInt64()
+					elemVal = bufferReader.getUInt64()
 					logStr += "%20u, " % elemVal
 
 			elif elementType == 2:
 				# Floating point
 				elemVal = 0.0
 				if elementSize == 4:
-					argVal = dataStepper.getFloat()
+					argVal = bufferReader.getFloat()
 				logStr += "%f, " % elemVal
 
 		# Remove last ", " and add closing bracket.
