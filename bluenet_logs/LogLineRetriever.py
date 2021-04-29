@@ -127,16 +127,17 @@ class LogLineRetriever:
 			# Iterate back over lines, and merge the lines together.
 			# Loop until the brackets are balanced (as many opening as closing brackets).
 			# Then check if the format can be found in the merged line.
-			mergedLine = line
+			mergedLine = line.strip()
 			i = lineNr - 1
 			while (i > 0):
-				curLine = lines[i]
+				curLine = lines[i].strip()
 				for c in curLine[::-1]:
 					if c == ')':
 						brackets = brackets - 1
 					if c == '(':
 						brackets = brackets + 1
 				mergedLine = curLine + mergedLine
+#				_LOGGER.debug(f"brackets={brackets} mergedLine={mergedLine}")
 				if brackets == 0:
 					# Looks like we're at the first opening bracket.
 					result = self._getLogFmtFromLine(mergedLine)
