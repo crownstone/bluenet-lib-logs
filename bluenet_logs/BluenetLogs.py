@@ -7,7 +7,7 @@ from bluenet_logs.LogLineRetriever import LogLineRetriever
 
 
 class BluenetLogs:
-	__version__ = "0.1.4"
+	__version__ = "0.1.4-git"
 
 	def __init__(self):
 		self.logFormatter = LogFormatter()
