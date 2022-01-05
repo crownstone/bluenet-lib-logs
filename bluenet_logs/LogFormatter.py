@@ -19,10 +19,10 @@ class LogFormatter:
 		# Whether the next log line should get a prefix.
 		self._printPrefix = True
 
-	def getPrefix(self, timestamp, fileName, lineNr, logLevel):
-		return f"LOG: [{timestamp.strftime(self.timestampFormat)}] [{fileName[-30:]}:{lineNr:4n}] {self.getLogLevelStr(logLevel)}{self.getLogLevelColor(logLevel)} "
+	def _getPrefix(self, timestamp, fileName, lineNr, logLevel):
+		return f"LOG: [{timestamp.strftime(self.timestampFormat)}] [{fileName[-30:]:>30}:{lineNr:4n}] {self._getLogLevelStr(logLevel)}{self._getLogLevelColor(logLevel)} "
 
-	def getLogLevelStr(self, logLevel):
+	def _getLogLevelStr(self, logLevel):
 		if logLevel == 8: return "V"
 		if logLevel == 7: return "D"
 		if logLevel == 6: return "I"
@@ -31,7 +31,7 @@ class LogFormatter:
 		if logLevel == 3: return "F"
 		return " "
 
-	def getLogLevelColor(self, logLevel):
+	def _getLogLevelColor(self, logLevel):
 		if self.enableColors:
 			if logLevel == 8: return "\033[37;1m" # White
 			if logLevel == 7: return "\033[37;1m" # White
@@ -41,7 +41,7 @@ class LogFormatter:
 			if logLevel == 3: return "\033[31;1m" # Red
 		return ""
 
-	def getEndColor(self):
+	def _getEndColor(self):
 		if self.enableColors:
 			return "\033[0m"
 		return ""
@@ -162,19 +162,22 @@ class LogFormatter:
 
 			logStr = formattedString
 			if self._printPrefix:
-				logStr = self.getPrefix(timestamp, fileName, lineNr, logLevel) + logStr
+				logStr = self._getPrefix(timestamp, fileName, lineNr, logLevel) + logStr
 
 			sys.stdout.write(logStr)
 			if newLine:
 				# Next line should be prefixed.
 				self._printPrefix = True
-				sys.stdout.write(self.getEndColor())
+				sys.stdout.write(self._getEndColor())
 				sys.stdout.write('\n')
 			else:
 				self._printPrefix = False
 
 	def printLogArray(self,
-	                logFormat: str,
+	                startFormat: str or None,
+	                endFormat: str or None,
+	                separationFormat: str or None,
+	                elementFormat: str or None,
 	                fileName: str,
 	                lineNr: int,
 	                logLevel: int, # TODO: make enum
@@ -190,7 +193,14 @@ class LogFormatter:
 			_LOGGER.warning(f"Remaining data with element size of {elementSize} and element data of size {dataSize}")
 			return
 
-		logStr = "["
+		if startFormat is None:
+			startFormat = "["
+		if endFormat is None:
+			endFormat = "]"
+		if separationFormat is None:
+			separationFormat = ", "
+
+		logStr = startFormat
 		numElements = int(dataSize / elementSize)
 		_LOGGER.debug(f"dataSize={dataSize} elementSize={elementSize} numElements={numElements}")
 		for i in range(0, numElements):
@@ -199,51 +209,65 @@ class LogFormatter:
 				elemVal = 0
 				if elementSize == 1:
 					elemVal = bufferReader.getInt8()
-					logStr += "%3i, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%3i"
 				elif elementSize == 2:
 					elemVal = bufferReader.getInt16()
-					logStr += "%5i, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%5i"
 				elif elementSize == 4:
 					elemVal = bufferReader.getInt32()
-					logStr += "%10i, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%10i"
 				elif elementSize == 8:
 					elemVal = bufferReader.getInt64()
-					logStr += "%20i, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%20i"
+				logStr += elementFormat % elemVal
 
 			elif elementType == 1:
 				# Unsigned integer
 				elemVal = 0
 				if elementSize == 1:
 					elemVal = bufferReader.getUInt8()
-					logStr += "%3u, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%3u"
 				elif elementSize == 2:
 					elemVal = bufferReader.getUInt16()
-					logStr += "%5u, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%5u"
 				elif elementSize == 4:
 					elemVal = bufferReader.getUInt32()
-					logStr += "%10u, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%10u"
 				elif elementSize == 8:
 					elemVal = bufferReader.getUInt64()
-					logStr += "%20u, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%20u"
+				logStr += elementFormat % elemVal
 
 			elif elementType == 2:
 				# Floating point
 				elemVal = 0.0
 				if elementSize == 4:
 					argVal = bufferReader.getFloat()
-				logStr += "%f, " % elemVal
+					if elementFormat is None:
+						elementFormat = "%f."
+				logStr += elementFormat % elemVal
 
-		# Remove last ", " and add closing bracket.
-		logStr = logStr[0:-2] + "]"
+			if i < numElements - 1:
+				logStr += separationFormat
+
+		logStr += endFormat
 
 		if self._printPrefix:
-			logStr = self.getPrefix(timestamp, fileName, lineNr, logLevel) + logStr
+			logStr = self._getPrefix(timestamp, fileName, lineNr, logLevel) + logStr
 
 		sys.stdout.write(logStr)
 		if newLine:
 			# Next line should be prefixed.
 			self._printPrefix = True
-			sys.stdout.write(self.getEndColor())
+			sys.stdout.write(self._getEndColor())
 			sys.stdout.write('\n')
 		else:
 			self._printPrefix = False
