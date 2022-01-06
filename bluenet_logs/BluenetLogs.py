@@ -109,7 +109,7 @@ class BluenetLogs:
 		fileName = self._fileNames[data.header.fileNameHash]
 
 		if data.header.lineNr not in self._logs[data.header.fileNameHash]:
-			_LOGGER.warning(f"No log format for {data.header}")
+			_LOGGER.warning(f"No log format for {fileName}:{data.header.lineNr}")
 			return
 
 		logFormat = self._logs[data.header.fileNameHash][data.header.lineNr]
@@ -123,7 +123,7 @@ class BluenetLogs:
 		fileName = self._fileNames[data.header.fileNameHash]
 
 		if data.header.lineNr not in self._logArrays[data.header.fileNameHash]:
-			_LOGGER.warning(f"No log format for {data.header}")
+			_LOGGER.warning(f"No log format for {fileName}:{data.header.lineNr}")
 			return
 
 		(startFormat, endFormat, separationFormat, elementFormat) = self._logArrays[data.header.fileNameHash][data.header.lineNr]
