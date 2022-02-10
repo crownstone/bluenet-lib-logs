@@ -127,4 +127,4 @@ class BluenetLogs:
 			return
 
 		(startFormat, endFormat, separationFormat, elementFormat) = self._logArrays[data.header.fileNameHash][data.header.lineNr]
-		self._logFormatter.printLogArray(startFormat, endFormat, separationFormat, elementFormat, fileName, data.header.lineNr, data.header.logLevel, data.header.newLine, data.elementType, data.elementSize, data.elementData)
+		self._logFormatter.printLogArray(startFormat, endFormat, separationFormat, elementFormat, fileName, data.header.lineNr, data.header.logLevel, data.header.newLine, data.header.reverse, data.elementType, data.elementSize, data.elementData)

@@ -46,6 +46,7 @@ class LogFormatter:
 			return "\033[0m"
 		return ""
 
+
 	def printLog(self,
 	           logFormat: str,
 	           fileName: str,
@@ -103,7 +104,7 @@ class LogFormatter:
 						argFmt += c
 						break
 
-					elif c == 'u' or c == 'x' or c == 'X' or c == 'o' or c == 'p':
+					elif c == 'u' or c == 'x' or c == 'X' or c == 'o' or c == 'p' or c == 'b':
 						# Unsigned integer
 						argVal = 0
 						if argLen == 1:
@@ -155,7 +156,11 @@ class LogFormatter:
 						continue
 
 				# Let python do the formatting
-				argStr = argFmt % argVal
+				if argFmt.endswith('b'):
+					# f-strings can do binary format. Remove the '%' from the arg format.
+					argStr = f"{argVal:{argFmt[1:]}}"
+				else:
+					argStr = argFmt % argVal
 				formattedString += argStr
 				argNum += 1
 				i += 1
@@ -173,6 +178,101 @@ class LogFormatter:
 			else:
 				self._printPrefix = False
 
+
+	def _getElementValues(self,
+	                      elementType: int,  # TODO: make enum
+	                      elementSize: int,
+	                      elementData: list) -> list:
+		bufferReader = BufferReader(elementData)
+		dataSize = len(elementData)
+		if dataSize % elementSize != 0:
+			_LOGGER.warning(f"Remaining data with element size of {elementSize} and element data of size {dataSize}")
+			return []
+
+		vals = []
+		numElements = int(dataSize / elementSize)
+		_LOGGER.debug(f"dataSize={dataSize} elementSize={elementSize} numElements={numElements}")
+		for i in range(0, numElements):
+			if elementType == 0:
+				# Signed integer
+				if elementSize == 1:
+					vals.append(bufferReader.getInt8())
+				elif elementSize == 2:
+					vals.append(bufferReader.getInt16())
+				elif elementSize == 4:
+					vals.append(bufferReader.getInt32())
+				elif elementSize == 8:
+					vals.append(bufferReader.getInt64())
+				else:
+					_LOGGER.warning(f"Unknown type: element with type {elementType} and size {elementSize}")
+					return []
+
+			elif elementType == 1:
+				# Unsigned integer
+				if elementSize == 1:
+					vals.append(bufferReader.getUInt8())
+				elif elementSize == 2:
+					vals.append(bufferReader.getUInt16())
+				elif elementSize == 4:
+					vals.append(bufferReader.getUInt32())
+				elif elementSize == 8:
+					vals.append(bufferReader.getUInt64())
+				else:
+					_LOGGER.warning(f"Unknown type: element with type {elementType} and size {elementSize}")
+					return []
+
+			elif elementType == 2:
+				# Floating point
+				if elementSize == 4:
+					vals.append(bufferReader.getFloat())
+				else:
+					_LOGGER.warning(f"Unknown type: element with type {elementType} and size {elementSize}")
+					return []
+		return vals
+
+
+	def _getElementString(self,
+	                      elementFormat: str or None,
+	                      elementType: int,  # TODO: make enum
+	                      elementSize: int,
+	                      elemVal: list) -> str:
+
+		if elementFormat is not None:
+			if elementFormat.endswith('b'):
+				return f"{elemVal:{elementFormat[1:]}}"
+			return elementFormat % elemVal
+
+		# Default formats:
+		elementFormat = f"unknown_type(type={elementType}, size={elementSize})"
+		if elementType == 0:
+			# Signed integer
+			if elementSize == 1:
+				elementFormat = "%3i"
+			elif elementSize == 2:
+				elementFormat = "%5i"
+			elif elementSize == 4:
+				elementFormat = "%10i"
+			elif elementSize == 8:
+				elementFormat = "%20i"
+
+		elif elementType == 1:
+			# Unsigned integer
+			if elementSize == 1:
+				elementFormat = "%3u"
+			elif elementSize == 2:
+				elementFormat = "%5u"
+			elif elementSize == 4:
+				elementFormat = "%10u"
+			elif elementSize == 8:
+				elementFormat = "%20u"
+
+		elif elementType == 2:
+			# Floating point
+			if elementSize == 4:
+				elementFormat = "%f."
+		return elementFormat % elemVal
+
+
 	def printLogArray(self,
 	                startFormat: str or None,
 	                endFormat: str or None,
@@ -182,16 +282,13 @@ class LogFormatter:
 	                lineNr: int,
 	                logLevel: int, # TODO: make enum
 	                newLine: bool,
+	                reverse: bool,
 	                elementType: int, # TODO: make enum
 	                elementSize: int,
 	                elementData: list):
 		timestamp = datetime.datetime.now()
 
-		bufferReader = BufferReader(elementData)
-		dataSize = len(elementData)
-		if dataSize % elementSize != 0:
-			_LOGGER.warning(f"Remaining data with element size of {elementSize} and element data of size {dataSize}")
-			return
+		elementValues = self._getElementValues(elementType, elementSize, elementData)
 
 		if startFormat is None:
 			startFormat = "["
@@ -201,60 +298,12 @@ class LogFormatter:
 			separationFormat = ", "
 
 		logStr = startFormat
-		numElements = int(dataSize / elementSize)
-		_LOGGER.debug(f"dataSize={dataSize} elementSize={elementSize} numElements={numElements}")
+		numElements = len(elementValues)
 		for i in range(0, numElements):
-			if elementType == 0:
-				# Signed integer
-				elemVal = 0
-				if elementSize == 1:
-					elemVal = bufferReader.getInt8()
-					if elementFormat is None:
-						elementFormat = "%3i"
-				elif elementSize == 2:
-					elemVal = bufferReader.getInt16()
-					if elementFormat is None:
-						elementFormat = "%5i"
-				elif elementSize == 4:
-					elemVal = bufferReader.getInt32()
-					if elementFormat is None:
-						elementFormat = "%10i"
-				elif elementSize == 8:
-					elemVal = bufferReader.getInt64()
-					if elementFormat is None:
-						elementFormat = "%20i"
-				logStr += elementFormat % elemVal
-
-			elif elementType == 1:
-				# Unsigned integer
-				elemVal = 0
-				if elementSize == 1:
-					elemVal = bufferReader.getUInt8()
-					if elementFormat is None:
-						elementFormat = "%3u"
-				elif elementSize == 2:
-					elemVal = bufferReader.getUInt16()
-					if elementFormat is None:
-						elementFormat = "%5u"
-				elif elementSize == 4:
-					elemVal = bufferReader.getUInt32()
-					if elementFormat is None:
-						elementFormat = "%10u"
-				elif elementSize == 8:
-					elemVal = bufferReader.getUInt64()
-					if elementFormat is None:
-						elementFormat = "%20u"
-				logStr += elementFormat % elemVal
-
-			elif elementType == 2:
-				# Floating point
-				elemVal = 0.0
-				if elementSize == 4:
-					argVal = bufferReader.getFloat()
-					if elementFormat is None:
-						elementFormat = "%f."
-				logStr += elementFormat % elemVal
-
+			elementValue = elementValues[i]
+			if reverse:
+				elementValue = elementValues[numElements - 1 - i]
+			logStr += self._getElementString(elementFormat, elementType, elementSize, elementValue)
 			if i < numElements - 1:
 				logStr += separationFormat
 
