@@ -57,11 +57,12 @@ class LogLineRetriever:
 
 	def _cacheFileNames(self):
 		"""
-		Cache all fileNames in sourceFilesDir
+		Cache all C/C++ fileNames in sourceFilesDir
 		"""
 		for root, dirs, files in os.walk(self.sourceFilesDir):
 			for fileName in files:
-				self.fileNames.append(os.path.join(root, fileName))
+				if fileName.endswith((".cpp",".c",".h",".hpp")):
+					self.fileNames.append(os.path.join(root, fileName))
 
 	def _cacheFileNameHashes(self):
 		"""

@@ -19,10 +19,10 @@ class LogFormatter:
 		# Whether the next log line should get a prefix.
 		self._printPrefix = True
 
-	def getPrefix(self, timestamp, fileName, lineNr, logLevel):
-		return f"LOG: [{timestamp.strftime(self.timestampFormat)}] [{fileName[-30:]}:{lineNr:4n}] {self.getLogLevelStr(logLevel)}{self.getLogLevelColor(logLevel)} "
+	def _getPrefix(self, timestamp, fileName, lineNr, logLevel):
+		return f"LOG: [{timestamp.strftime(self.timestampFormat)}] [{fileName[-30:]:>30}:{lineNr:4n}] {self._getLogLevelStr(logLevel)}{self._getLogLevelColor(logLevel)} "
 
-	def getLogLevelStr(self, logLevel):
+	def _getLogLevelStr(self, logLevel):
 		if logLevel == 8: return "V"
 		if logLevel == 7: return "D"
 		if logLevel == 6: return "I"
@@ -31,7 +31,7 @@ class LogFormatter:
 		if logLevel == 3: return "F"
 		return " "
 
-	def getLogLevelColor(self, logLevel):
+	def _getLogLevelColor(self, logLevel):
 		if self.enableColors:
 			if logLevel == 8: return "\033[37;1m" # White
 			if logLevel == 7: return "\033[37;1m" # White
@@ -41,10 +41,11 @@ class LogFormatter:
 			if logLevel == 3: return "\033[31;1m" # Red
 		return ""
 
-	def getEndColor(self):
+	def _getEndColor(self):
 		if self.enableColors:
 			return "\033[0m"
 		return ""
+
 
 	def printLog(self,
 	           logFormat: str,
@@ -103,7 +104,7 @@ class LogFormatter:
 						argFmt += c
 						break
 
-					elif c == 'u' or c == 'x' or c == 'X' or c == 'o' or c == 'p':
+					elif c == 'u' or c == 'x' or c == 'X' or c == 'o' or c == 'p' or c == 'b':
 						# Unsigned integer
 						argVal = 0
 						if argLen == 1:
@@ -155,95 +156,167 @@ class LogFormatter:
 						continue
 
 				# Let python do the formatting
-				argStr = argFmt % argVal
+				if argFmt.endswith('b'):
+					# f-strings can do binary format. Remove the '%' from the arg format.
+					argStr = f"{argVal:{argFmt[1:]}}"
+				else:
+					argStr = argFmt % argVal
 				formattedString += argStr
 				argNum += 1
 				i += 1
 
 			logStr = formattedString
 			if self._printPrefix:
-				logStr = self.getPrefix(timestamp, fileName, lineNr, logLevel) + logStr
+				logStr = self._getPrefix(timestamp, fileName, lineNr, logLevel) + logStr
 
 			sys.stdout.write(logStr)
 			if newLine:
 				# Next line should be prefixed.
 				self._printPrefix = True
-				sys.stdout.write(self.getEndColor())
+				sys.stdout.write(self._getEndColor())
 				sys.stdout.write('\n')
 			else:
 				self._printPrefix = False
 
-	def printLogArray(self,
-	                logFormat: str,
-	                fileName: str,
-	                lineNr: int,
-	                logLevel: int, # TODO: make enum
-	                newLine: bool,
-	                elementType: int, # TODO: make enum
-	                elementSize: int,
-	                elementData: list):
-		timestamp = datetime.datetime.now()
 
+	def _getElementValues(self,
+	                      elementType: int,  # TODO: make enum
+	                      elementSize: int,
+	                      elementData: list) -> list:
 		bufferReader = BufferReader(elementData)
 		dataSize = len(elementData)
 		if dataSize % elementSize != 0:
 			_LOGGER.warning(f"Remaining data with element size of {elementSize} and element data of size {dataSize}")
-			return
+			return []
 
-		logStr = "["
+		vals = []
 		numElements = int(dataSize / elementSize)
 		_LOGGER.debug(f"dataSize={dataSize} elementSize={elementSize} numElements={numElements}")
 		for i in range(0, numElements):
 			if elementType == 0:
 				# Signed integer
-				elemVal = 0
 				if elementSize == 1:
-					elemVal = bufferReader.getInt8()
-					logStr += "%3i, " % elemVal
+					vals.append(bufferReader.getInt8())
 				elif elementSize == 2:
-					elemVal = bufferReader.getInt16()
-					logStr += "%5i, " % elemVal
+					vals.append(bufferReader.getInt16())
 				elif elementSize == 4:
-					elemVal = bufferReader.getInt32()
-					logStr += "%10i, " % elemVal
+					vals.append(bufferReader.getInt32())
 				elif elementSize == 8:
-					elemVal = bufferReader.getInt64()
-					logStr += "%20i, " % elemVal
+					vals.append(bufferReader.getInt64())
+				else:
+					_LOGGER.warning(f"Unknown type: element with type {elementType} and size {elementSize}")
+					return []
 
 			elif elementType == 1:
 				# Unsigned integer
-				elemVal = 0
 				if elementSize == 1:
-					elemVal = bufferReader.getUInt8()
-					logStr += "%3u, " % elemVal
+					vals.append(bufferReader.getUInt8())
 				elif elementSize == 2:
-					elemVal = bufferReader.getUInt16()
-					logStr += "%5u, " % elemVal
+					vals.append(bufferReader.getUInt16())
 				elif elementSize == 4:
-					elemVal = bufferReader.getUInt32()
-					logStr += "%10u, " % elemVal
+					vals.append(bufferReader.getUInt32())
 				elif elementSize == 8:
-					elemVal = bufferReader.getUInt64()
-					logStr += "%20u, " % elemVal
+					vals.append(bufferReader.getUInt64())
+				else:
+					_LOGGER.warning(f"Unknown type: element with type {elementType} and size {elementSize}")
+					return []
 
 			elif elementType == 2:
 				# Floating point
-				elemVal = 0.0
 				if elementSize == 4:
-					argVal = bufferReader.getFloat()
-				logStr += "%f, " % elemVal
+					vals.append(bufferReader.getFloat())
+				else:
+					_LOGGER.warning(f"Unknown type: element with type {elementType} and size {elementSize}")
+					return []
+		return vals
 
-		# Remove last ", " and add closing bracket.
-		logStr = logStr[0:-2] + "]"
+
+	def _getElementString(self,
+	                      elementFormat: str or None,
+	                      elementType: int,  # TODO: make enum
+	                      elementSize: int,
+	                      elemVal: list) -> str:
+
+		if elementFormat is not None:
+			if elementFormat.endswith('b'):
+				return f"{elemVal:{elementFormat[1:]}}"
+			return elementFormat % elemVal
+
+		# Default formats:
+		elementFormat = f"unknown_type(type={elementType}, size={elementSize})"
+		if elementType == 0:
+			# Signed integer
+			if elementSize == 1:
+				elementFormat = "%3i"
+			elif elementSize == 2:
+				elementFormat = "%5i"
+			elif elementSize == 4:
+				elementFormat = "%10i"
+			elif elementSize == 8:
+				elementFormat = "%20i"
+
+		elif elementType == 1:
+			# Unsigned integer
+			if elementSize == 1:
+				elementFormat = "%3u"
+			elif elementSize == 2:
+				elementFormat = "%5u"
+			elif elementSize == 4:
+				elementFormat = "%10u"
+			elif elementSize == 8:
+				elementFormat = "%20u"
+
+		elif elementType == 2:
+			# Floating point
+			if elementSize == 4:
+				elementFormat = "%f."
+		return elementFormat % elemVal
+
+
+	def printLogArray(self,
+	                startFormat: str or None,
+	                endFormat: str or None,
+	                separationFormat: str or None,
+	                elementFormat: str or None,
+	                fileName: str,
+	                lineNr: int,
+	                logLevel: int, # TODO: make enum
+	                newLine: bool,
+	                reverse: bool,
+	                elementType: int, # TODO: make enum
+	                elementSize: int,
+	                elementData: list):
+		timestamp = datetime.datetime.now()
+
+		elementValues = self._getElementValues(elementType, elementSize, elementData)
+
+		if startFormat is None:
+			startFormat = "["
+		if endFormat is None:
+			endFormat = "]"
+		if separationFormat is None:
+			separationFormat = ", "
+
+		logStr = startFormat
+		numElements = len(elementValues)
+		for i in range(0, numElements):
+			elementValue = elementValues[i]
+			if reverse:
+				elementValue = elementValues[numElements - 1 - i]
+			logStr += self._getElementString(elementFormat, elementType, elementSize, elementValue)
+			if i < numElements - 1:
+				logStr += separationFormat
+
+		logStr += endFormat
 
 		if self._printPrefix:
-			logStr = self.getPrefix(timestamp, fileName, lineNr, logLevel) + logStr
+			logStr = self._getPrefix(timestamp, fileName, lineNr, logLevel) + logStr
 
 		sys.stdout.write(logStr)
 		if newLine:
 			# Next line should be prefixed.
 			self._printPrefix = True
-			sys.stdout.write(self.getEndColor())
+			sys.stdout.write(self._getEndColor())
 			sys.stdout.write('\n')
 		else:
 			self._printPrefix = False
