@@ -70,7 +70,13 @@ class BluenetLogs:
 		if self._isLogStringsFileUpdated():
 			self._importLogStringsFile()
 
+	def _isLogStringsFileSet(self) -> bool:
+		return self._logStringsFileName != ""
+
 	def _isLogStringsFileUpdated(self) -> bool:
+		if not self._isLogStringsFileSet():
+			return False
+
 		fileName = self._logStringsFileName
 		try:
 			timestamp = os.stat(fileName).st_mtime
@@ -82,6 +88,9 @@ class BluenetLogs:
 			return True
 
 	def _importLogStringsFile(self):
+		if not self._isLogStringsFileSet():
+			return False
+
 		try:
 			file = open(self._logStringsFileName, "r")
 			logStringsJson = json.load(file)
@@ -117,6 +126,9 @@ class BluenetLogs:
 			return
 
 	def _onLog(self, data: UartLogPacket):
+		if not self._isLogStringsFileSet():
+			return
+
 		self._updateLogStrings()
 		if data.header.fileNameHash not in self._fileNames:
 			_LOGGER.warning(f"No file name for {data.header}")
@@ -131,6 +143,9 @@ class BluenetLogs:
 		self._logFormatter.printLog(logFormat, fileName, data.header.lineNr, data.header.logLevel, data.header.newLine, data.argBufs)
 
 	def _onLogArray(self, data: UartLogArrayPacket):
+		if not self._isLogStringsFileSet():
+			return
+
 		self._updateLogStrings()
 		if data.header.fileNameHash not in self._fileNames:
 			_LOGGER.warning(f"No file name for {data.header}")
