@@ -13,7 +13,7 @@ from bluenet_logs.LogFormatter import LogFormatter
 _LOGGER = logging.getLogger(__name__)
 
 class BluenetLogs:
-	__version__ = "1.2.1"
+	__version__ = "1.2.1-git"
 
 	def __init__(self):
 		self._logFormatter = LogFormatter()
