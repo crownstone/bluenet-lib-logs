@@ -1,1 +1,1 @@
-crownstone-uart~=2.3
+crownstone-uart~=2.4

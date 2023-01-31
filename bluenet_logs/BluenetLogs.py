@@ -1,23 +1,26 @@
 import json
 import logging
 import os
+import sys
 
 from crownstone_uart import UartEventBus, UartTopics
 from crownstone_uart.core.uart.uartPackets.UartLogArrayPacket import UartLogArrayPacket
 from crownstone_uart.core.uart.uartPackets.UartLogPacket import UartLogPacket
+from crownstone_uart.topics.SystemTopics import SystemTopics
 
 from bluenet_logs.LogFormatter import LogFormatter
 
 _LOGGER = logging.getLogger(__name__)
 
 class BluenetLogs:
-	__version__ = "1.1.0-git"
+	__version__ = "1.2.1-git"
 
 	def __init__(self):
 		self._logFormatter = LogFormatter()
 
 		UartEventBus.subscribe(UartTopics.log, self._onLog)
 		UartEventBus.subscribe(UartTopics.logArray, self._onLogArray)
+		UartEventBus.subscribe(SystemTopics.uartDiscardedData, self._onDiscardedData)
 
 		# The log string file name.
 		self._logStringsFileName = ""
@@ -41,6 +44,9 @@ class BluenetLogs:
 		#        Value: (startFormat, endFormat, separationFormat, elementFormat)
 		self._logArrays = {}
 
+		# Whether to print discarded data.
+		self._printDiscardedData = False
+
 	def setLogStringsFile(self, fileName: str):
 		"""
 		Set the file containing the log strings.
@@ -51,11 +57,26 @@ class BluenetLogs:
 		self._importLogStringsFile()
 		self._logStringsFileTimestamp = os.stat(fileName).st_mtime
 
+	def printPlaintextLogs(self, enable: bool):
+		"""
+		Whether to print plaintext logs.
+		This means all received bytes that do not make a binary packet, will be printed.
+
+		:param enable: True to enable.
+		"""
+		self._printDiscardedData = enable
+
 	def _updateLogStrings(self):
 		if self._isLogStringsFileUpdated():
 			self._importLogStringsFile()
 
+	def _isLogStringsFileSet(self) -> bool:
+		return self._logStringsFileName != ""
+
 	def _isLogStringsFileUpdated(self) -> bool:
+		if not self._isLogStringsFileSet():
+			return False
+
 		fileName = self._logStringsFileName
 		try:
 			timestamp = os.stat(fileName).st_mtime
@@ -67,6 +88,9 @@ class BluenetLogs:
 			return True
 
 	def _importLogStringsFile(self):
+		if not self._isLogStringsFileSet():
+			return False
+
 		try:
 			file = open(self._logStringsFileName, "r")
 			logStringsJson = json.load(file)
@@ -96,12 +120,15 @@ class BluenetLogs:
 				if fileNameHash not in self._logArrays:
 					self._logArrays[fileNameHash] = {}
 				self._logArrays[fileNameHash][lineNr] = (startFmt, endFmt, sepFmt, elementFmt)
-			_LOGGER.debug(f"Imported log strings from {self._logStringsFileName}")
+			_LOGGER.info(f"Imported log strings from {self._logStringsFileName}")
 		except Exception as e:
 			_LOGGER.warning(f"Failed to import log strings from {self._logStringsFileName}: {e}")
 			return
 
 	def _onLog(self, data: UartLogPacket):
+		if not self._isLogStringsFileSet():
+			return
+
 		self._updateLogStrings()
 		if data.header.fileNameHash not in self._fileNames:
 			_LOGGER.warning(f"No file name for {data.header}")
@@ -116,6 +143,9 @@ class BluenetLogs:
 		self._logFormatter.printLog(logFormat, fileName, data.header.lineNr, data.header.logLevel, data.header.newLine, data.argBufs)
 
 	def _onLogArray(self, data: UartLogArrayPacket):
+		if not self._isLogStringsFileSet():
+			return
+
 		self._updateLogStrings()
 		if data.header.fileNameHash not in self._fileNames:
 			_LOGGER.warning(f"No file name for {data.header}")
@@ -128,3 +158,8 @@ class BluenetLogs:
 
 		(startFormat, endFormat, separationFormat, elementFormat) = self._logArrays[data.header.fileNameHash][data.header.lineNr]
 		self._logFormatter.printLogArray(startFormat, endFormat, separationFormat, elementFormat, fileName, data.header.lineNr, data.header.logLevel, data.header.newLine, data.header.reverse, data.elementType, data.elementSize, data.elementData)
+
+	def _onDiscardedData(self, data: list):
+		if self._printDiscardedData:
+			for b in data:
+				sys.stdout.write(chr(b))
